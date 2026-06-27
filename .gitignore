@@ -427,3 +427,10 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Front-End (Node.js / Vue.js)
+node_modules/
+dist/
+.env
+.env.local
+npm-debug.log*
