@@ -1,10 +1,9 @@
-using BCrypt.Net;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.OpenApi;
+using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
 using MyApp.Data;
 using MyApp.Models;
 using System.Text;
-
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 
@@ -184,6 +183,55 @@ app.MapPost(
     )
     .WithTags("Auth");
 
+static string CreateToken(User user, IConfiguration config)
+{
+    var claims = new[]
+    {
+        new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+        new Claim(ClaimTypes.Email, user.Email),
+        new Claim(ClaimTypes.Role, user.Role)
+    };
+
+    var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(config["Jwt:Key"]!));
+    var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+    var token = new JwtSecurityToken(
+        issuer: config["Jwt:Issuer"],
+        audience: config["Jwt:Audience"],
+        claims: claims,
+        expires: DateTime.UtcNow.AddHours(2),
+        signingCredentials: creds
+    );
+
+    return new JwtSecurityTokenHandler().WriteToken(token);
+}
+app.MapPost("/auth/login", async (LoginDto dto, AppDbContext db, IConfiguration config) =>
+{
+    var user = await db.Users.FirstOrDefaultAsync(u => u.Email == dto.Email);
+    
+    if (user is null || !BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
+    {
+        return Results.Unauthorized();
+    }
+
+    var token = CreateToken(user, config);
+    
+    return Results.Ok(new { access_token = token, token_type = "Bearer" });
+})
+.WithTags("Auth");
+
+app.MapGet("/auth/me", (ClaimsPrincipal principal) =>
+    Results.Ok(new
+    {
+        Id = principal.FindFirstValue(ClaimTypes.NameIdentifier),
+        Email = principal.FindFirstValue(ClaimTypes.Email),
+        Role = principal.FindFirstValue(ClaimTypes.Role)
+    }))
+.RequireAuthorization()
+.WithTags("Auth");
+
 app.Run();
 
 record RegisterDto(string Name, string Email, string Password);
+
+record LoginDto(string Email, string Password);
