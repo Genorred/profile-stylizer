@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Profile stylizer</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <h1>Profile stylizer</h1>
+    </header>
+
+    <main class="container">
+      <section class="card">
+        <h2>Вхід</h2>
+        <div class="telegram-login">
+          <button type="button" id="telegram-login-btn" class="btn btn-telegram">
+            Увійти через Telegram
+          </button>
+          <p id="telegram-login-status" class="status"></p>
+        </div>
+
+        <form id="login-form">
+          <label for="email">Email</label>
+          <input type="email" id="email" name="email" required />
+
+          <label for="password">Пароль</label>
+          <input type="password" id="password" name="password" required />
+
+          <button type="submit" class="btn">Увійти</button>
+          <p id="login-status" class="status"></p>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>Дані</h2>
+        <button id="load-btn" class="btn">Завантажити</button>
+        <ul id="data-list"></ul>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p>Лабораторна робота — Front-End застосунку</p>
+    </footer>
+
+    <script src="app.js"></script>
+  </body>
+</html>

@@ -1,15 +1,15 @@
-using Microsoft.EntityFrameworkCore;
-using System.Security.Claims;
 using System.IdentityModel.Tokens.Jwt;
-using MyApp.Data;
-using MyApp.Models;
+using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-
 using Microsoft.OpenApi.Models;
+using MyApp.Data;
+using MyApp.Models;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddHttpClient();
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlite(connectionString));
@@ -79,6 +79,9 @@ builder.Services.AddSwaggerGen(options =>
     );
 });
 
+builder.Services.AddSingleton<TelegramLoginSessionStore>();
+builder.Services.AddSingleton<TelegramBotAuthHandler>();
+builder.Services.AddHostedService<TelegramBotHostedService>();
 var app = builder.Build();
 
 app.UseAuthentication();
@@ -189,7 +192,7 @@ static string CreateToken(User user, IConfiguration config)
     {
         new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
         new Claim(ClaimTypes.Email, user.Email),
-        new Claim(ClaimTypes.Role, user.Role)
+        new Claim(ClaimTypes.Role, user.Role),
     };
 
     var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(config["Jwt:Key"]!));
@@ -205,30 +208,92 @@ static string CreateToken(User user, IConfiguration config)
 
     return new JwtSecurityTokenHandler().WriteToken(token);
 }
-app.MapPost("/auth/login", async (LoginDto dto, AppDbContext db, IConfiguration config) =>
-{
-    var user = await db.Users.FirstOrDefaultAsync(u => u.Email == dto.Email);
-    
-    if (user is null || !BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
-    {
-        return Results.Unauthorized();
-    }
+app.MapPost(
+        "/auth/login",
+        async (LoginDto dto, AppDbContext db, IConfiguration config) =>
+        {
+            var user = await db.Users.FirstOrDefaultAsync(u => u.Email == dto.Email);
 
-    var token = CreateToken(user, config);
-    
-    return Results.Ok(new { access_token = token, token_type = "Bearer" });
-})
-.WithTags("Auth");
+            if (user is null || !BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
+            {
+                return Results.Unauthorized();
+            }
 
-app.MapGet("/auth/me", (ClaimsPrincipal principal) =>
-    Results.Ok(new
-    {
-        Id = principal.FindFirstValue(ClaimTypes.NameIdentifier),
-        Email = principal.FindFirstValue(ClaimTypes.Email),
-        Role = principal.FindFirstValue(ClaimTypes.Role)
-    }))
-.RequireAuthorization()
-.WithTags("Auth");
+            var token = CreateToken(user, config);
+
+            return Results.Ok(new { access_token = token, token_type = "Bearer" });
+        }
+    )
+    .WithTags("Auth");
+
+app.MapGet(
+        "/auth/me",
+        (ClaimsPrincipal principal) =>
+            Results.Ok(
+                new
+                {
+                    Id = principal.FindFirstValue(ClaimTypes.NameIdentifier),
+                    Email = principal.FindFirstValue(ClaimTypes.Email),
+                    Role = principal.FindFirstValue(ClaimTypes.Role),
+                }
+            )
+    )
+    .RequireAuthorization()
+    .WithTags("Auth");
+
+// ...
+
+app.MapPost(
+        "/auth/telegram/start",
+        (IConfiguration config, TelegramLoginSessionStore sessionStore) =>
+        {
+            var botUsername = config["Telegram:BotUsername"];
+            if (string.IsNullOrWhiteSpace(config["Telegram:BotToken"])
+                || string.IsNullOrWhiteSpace(botUsername))
+            {
+                return Results.Problem("Telegram bot is not configured.");
+            }
+
+            var session = sessionStore.Create(TimeSpan.FromMinutes(10));
+            var botUrl = $"https://t.me/{botUsername}?start=login_{session.Token}";
+
+            return Results.Ok(new
+            {
+                token = session.Token,
+                bot_url = botUrl,
+                expires_at = session.ExpiresAt,
+            });
+        }
+    )
+    .WithTags("Auth");
+
+app.MapGet(
+        "/auth/telegram/status",
+        (string token, TelegramLoginSessionStore sessionStore) =>
+        {
+            var session = sessionStore.Get(token);
+            if (session is null || session.ExpiresAt < DateTime.UtcNow)
+            {
+                return Results.Ok(new { status = "expired" });
+            }
+
+            if (!session.Completed)
+            {
+                return Results.Ok(new { status = "pending" });
+            }
+
+            return Results.Ok(new
+            {
+                status = "completed",
+                access_token = session.AccessToken,
+                token_type = "Bearer",
+                user_id = session.UserId,
+            });
+        }
+    )
+    .WithTags("Auth");
+
+app.UseStaticFiles();
 
 app.Run();
 

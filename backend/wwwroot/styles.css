@@ -1,0 +1,116 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: "Segoe UI", Arial, sans-serif;
+  background-color: #f4f6fb;
+  color: #1f2430;
+  line-height: 1.5;
+}
+
+.site-header {
+  background-color: #4a6cf7;
+  color: #fff;
+  padding: 20px;
+  text-align: center;
+}
+
+.container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  max-width: 900px;
+  margin: 30px auto;
+  padding: 0 20px;
+}
+
+.card {
+  flex: 1 1 320px;
+  background-color: #ffffff;
+  padding: 20px;
+  border-radius: 10px;
+  border: 1px solid #e0e3ec;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.card h2 {
+  margin-bottom: 15px;
+  font-size: 1.2rem;
+  color: #2a2f3a;
+}
+
+#login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#login-form label {
+  font-size: 0.9rem;
+  color: #555;
+}
+
+#login-form input {
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 1rem;
+}
+
+.btn {
+  background-color: #4a6cf7;
+  color: #fff;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 1rem;
+  cursor: pointer;
+  margin-top: 5px;
+}
+
+.btn:hover {
+  background-color: #3a57d6;
+}
+
+.telegram-login {
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e0e3ec;
+}
+
+.btn-telegram {
+  background-color: #229ed9;
+}
+
+.btn-telegram:hover {
+  background-color: #1b8bc0;
+}
+
+.status {
+  font-size: 0.9rem;
+  margin-top: 5px;
+}
+
+#data-list {
+  list-style: none;
+  margin-top: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+#data-list li {
+  padding: 10px;
+  background-color: #f0f2fa;
+  border-radius: 6px;
+}
+
+.site-footer {
+  text-align: center;
+  padding: 15px;
+  color: #777;
+  font-size: 0.85rem;
+}
