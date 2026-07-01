@@ -2,30 +2,34 @@ const { createApp } = Vue;
 
 const TOKEN_KEY = "access_token";
 
-/**
- * Axios interceptor (обязательное требование темы 11)
- */
 axios.interceptors.request.use((config) => {
   const token = localStorage.getItem(TOKEN_KEY);
-  if (token) {
-    config.headers.Authorization = "Bearer " + token;
-  }
+  if (token) config.headers.Authorization = "Bearer " + token;
   return config;
 });
 
 createApp({
   data() {
     return {
+      authTab: "login",
+
       email: "",
       password: "",
 
       loginStatus: "",
+      registerStatus: "",
       telegramStatus: "Telegram не підключено",
+
+      registerForm: {
+        name: "",
+        email: "",
+        password: "",
+      },
 
       profile: null,
       loadingProfile: false,
 
-      telegramPollTimer: null,
+      telegramTimer: null,
     };
   },
 
@@ -36,15 +40,7 @@ createApp({
   },
 
   methods: {
-    /**
-     * LOGIN (email/password)
-     */
     async login() {
-      if (!this.email || !this.password) {
-        this.loginStatus = "Заповніть всі поля";
-        return;
-      }
-
       try {
         const res = await axios.post("/login", {
           email: this.email,
@@ -52,76 +48,81 @@ createApp({
         });
 
         localStorage.setItem(TOKEN_KEY, res.data.access_token);
-
-        this.loginStatus = "Вхід виконано успішно";
+        this.loginStatus = "Успішний вхід";
 
         await this.loadProfile();
-      } catch (err) {
+      } catch {
         this.loginStatus = "Помилка входу";
       }
     },
 
-    /**
-     * TELEGRAM LOGIN (polling)
-     */
-    async telegramLogin() {
-      if (this.telegramPollTimer) {
-        clearInterval(this.telegramPollTimer);
+    async register() {
+      try {
+        await axios.post("/auth/register", this.registerForm);
+
+        this.registerStatus = "Реєстрація успішна";
+        this.authTab = "login";
+
+        this.email = this.registerForm.email;
+
+        this.registerForm = {
+          name: "",
+          email: "",
+          password: "",
+        };
+      } catch (e) {
+        if (e.response?.status === 409) {
+          this.registerStatus = "Користувач вже існує";
+        } else {
+          this.registerStatus = "Помилка реєстрації";
+        }
       }
+    },
 
-      this.telegramStatus = "Запуск Telegram логіну...";
-
+    async telegramLogin() {
       try {
         const res = await axios.post("/auth/telegram/start");
-
         const data = res.data;
+
         window.open(data.bot_url, "_blank");
 
-        this.telegramStatus =
-          "Очікуємо підтвердження в Telegram...";
+        this.telegramStatus = "Очікуємо Telegram...";
 
-        this.telegramPollTimer = setInterval(async () => {
+        this.telegramTimer = setInterval(async () => {
           try {
-            const statusRes = await axios.get(
+            const r = await axios.get(
               `/auth/telegram/status?token=${encodeURIComponent(data.token)}`
             );
 
-            const status = statusRes.data;
+            if (r.data.status === "pending") return;
 
-            if (status.status === "pending") return;
+            clearInterval(this.telegramTimer);
 
-            clearInterval(this.telegramPollTimer);
-            this.telegramPollTimer = null;
-
-            if (status.status === "completed") {
-              localStorage.setItem(TOKEN_KEY, status.access_token);
+            if (r.data.status === "completed") {
+              localStorage.setItem(TOKEN_KEY, r.data.access_token);
               this.telegramStatus = "Успішний Telegram login";
 
               await this.loadProfile();
             } else {
-              this.telegramStatus = "Таймаут входу";
+              this.telegramStatus = "Таймаут";
             }
-          } catch (e) {
-            clearInterval(this.telegramPollTimer);
-            this.telegramPollTimer = null;
-            this.telegramStatus = "Помилка перевірки статусу";
+          } catch {
+            clearInterval(this.telegramTimer);
+            this.telegramStatus = "Помилка Telegram";
           }
         }, 2000);
-      } catch (err) {
-        this.telegramStatus = "Помилка Telegram login";
+      } catch {
+        this.telegramStatus = "Telegram error";
       }
     },
 
-    /**
-     * LOAD PROFILE (READ API)
-     */
     async loadProfile() {
       this.loadingProfile = true;
 
       try {
         const res = await axios.get("/auth/me");
         this.profile = res.data;
-      } catch (err) {
+      } catch {
         this.profile = null;
       } finally {
         this.loadingProfile = false;
