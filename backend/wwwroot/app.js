@@ -3,7 +3,8 @@ const loginStatus = document.getElementById("login-status");
 const telegramLoginBtn = document.getElementById("telegram-login-btn");
 const telegramLoginStatus = document.getElementById("telegram-login-status");
 const loadBtn = document.getElementById("load-btn");
-const dataList = document.getElementById("data-list");
+const profileStatus = document.getElementById("profile-status");
+const profileCard = document.getElementById("profile-card");
 
 let telegramPollTimer = null;
 
@@ -102,29 +103,118 @@ loadBtn.addEventListener("click", async () => {
   const token = localStorage.getItem("access_token");
 
   if (!token) {
-    alert("Спочатку виконайте вхід");
+    profileStatus.textContent = "Спочатку виконайте вхід";
+    profileStatus.style.color = "red";
+    profileCard.classList.add("hidden");
+    profileCard.innerHTML = "";
     return;
   }
 
+  profileStatus.textContent = "Завантаження...";
+  profileStatus.style.color = "#555";
+
   try {
-    const res = await fetch("/products", {
+    const res = await fetch("/auth/me", {
       headers: { Authorization: "Bearer " + token },
     });
 
     if (!res.ok) {
-      alert("Не вдалося отримати дані");
+      profileStatus.textContent = "Не вдалося отримати дані";
+      profileStatus.style.color = "red";
+      profileCard.classList.add("hidden");
+      profileCard.innerHTML = "";
       return;
     }
 
-    const items = await res.json();
-    dataList.innerHTML = "";
-
-    items.forEach((item) => {
-      const li = document.createElement("li");
-      li.textContent = item.name;
-      dataList.appendChild(li);
-    });
+    const user = await res.json();
+    renderProfile(user);
+    profileStatus.textContent = "";
   } catch (err) {
-    alert("Помилка з'єднання з сервером");
+    profileStatus.textContent = "Помилка з'єднання з сервером";
+    profileStatus.style.color = "red";
+    profileCard.classList.add("hidden");
+    profileCard.innerHTML = "";
   }
 });
+
+function renderProfile(user) {
+  const hasTelegram = user.telegramId != null;
+  const username = user.telegramUsername
+    ? `@${user.telegramUsername}`
+    : "—";
+  const photos = Array.isArray(user.telegramPictures) ? user.telegramPictures : [];
+
+  const photosHtml = photos.length
+    ? `<div class="profile-photos">${photos
+        .map(
+          (url) =>
+            `<img src="${escapeHtml(url)}" alt="Фото профілю Telegram" class="profile-photo" />`
+        )
+        .join("")}</div>`
+    : `<p class="profile-empty">Фото відсутні</p>`;
+
+  profileCard.innerHTML = `
+    <dl class="profile-fields">
+      <div class="profile-field">
+        <dt>ID</dt>
+        <dd>${escapeHtml(String(user.id))}</dd>
+      </div>
+      <div class="profile-field">
+        <dt>Ім'я</dt>
+        <dd>${escapeHtml(user.name || "—")}</dd>
+      </div>
+      <div class="profile-field">
+        <dt>Email</dt>
+        <dd>${escapeHtml(user.email || "—")}</dd>
+      </div>
+      <div class="profile-field">
+        <dt>Роль</dt>
+        <dd>${escapeHtml(user.role || "—")}</dd>
+      </div>
+      <div class="profile-field profile-field-wide">
+        <dt>Bio</dt>
+        <dd class="profile-bio">${escapeHtml(user.bio || user.telegramBio || "—")}</dd>
+      </div>
+    </dl>
+
+    ${
+      hasTelegram
+        ? `
+      <div class="profile-section">
+        <h3>Telegram</h3>
+        <dl class="profile-fields">
+          <div class="profile-field">
+            <dt>Telegram ID</dt>
+            <dd>${escapeHtml(String(user.telegramId))}</dd>
+          </div>
+          <div class="profile-field">
+            <dt>Ім'я в Telegram</dt>
+            <dd>${escapeHtml(user.telegramName || "—")}</dd>
+          </div>
+          <div class="profile-field">
+            <dt>Username</dt>
+            <dd>${escapeHtml(username)}</dd>
+          </div>
+          <div class="profile-field profile-field-wide">
+            <dt>Біо</dt>
+            <dd>${escapeHtml(user.telegramBio || "—")}</dd>
+          </div>
+        </dl>
+        ${photosHtml}
+      </div>
+    `
+        : `<p class="profile-empty">Telegram-профіль не прив'язано</p>`
+    }
+  `;
+
+  profileCard.classList.remove("hidden");
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}

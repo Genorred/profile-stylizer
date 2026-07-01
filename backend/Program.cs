@@ -228,15 +228,32 @@ app.MapPost(
 
 app.MapGet(
         "/auth/me",
-        (ClaimsPrincipal principal) =>
-            Results.Ok(
+        async (ClaimsPrincipal principal, AppDbContext db) =>
+        {
+            var userIdValue = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!int.TryParse(userIdValue, out var userId))
+                return Results.Unauthorized();
+
+            var user = await db.Users.FindAsync(userId);
+            if (user is null)
+                return Results.NotFound();
+
+            return Results.Ok(
                 new
                 {
-                    Id = principal.FindFirstValue(ClaimTypes.NameIdentifier),
-                    Email = principal.FindFirstValue(ClaimTypes.Email),
-                    Role = principal.FindFirstValue(ClaimTypes.Role),
+                    user.Id,
+                    user.Name,
+                    user.Email,
+                    user.Role,
+                    user.Bio,
+                    user.TelegramId,
+                    user.TelegramName,
+                    user.TelegramUsername,
+                    user.TelegramBio,
+                    user.TelegramPictures,
                 }
-            )
+            );
+        }
     )
     .RequireAuthorization()
     .WithTags("Auth");

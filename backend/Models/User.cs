@@ -7,6 +7,7 @@ public class User
     public string Email { get; set; } = string.Empty;
     public string PasswordHash { get; set; } = string.Empty;
     public string Role { get; set; } = "user";
+    public string Bio { get; set; } = string.Empty;
     public long? TelegramId { get; set; }
     public string TelegramName { get; set; } = string.Empty;
     public string TelegramUsername { get; set; } = string.Empty;

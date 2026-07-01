@@ -135,7 +135,7 @@ public sealed class TelegramBotAuthHandler
         return string.IsNullOrWhiteSpace(name) ? $"User {telegramUser.Id}" : name;
     }
 
-    private static async Task<string> TryGetBioAsync(
+    private async Task<string> TryGetBioAsync(
         ITelegramBotClient bot,
         long telegramId,
         CancellationToken cancellationToken
@@ -143,11 +143,18 @@ public sealed class TelegramBotAuthHandler
     {
         try
         {
-            var chat = await bot.GetChat(telegramId, cancellationToken);
-            return chat.Bio ?? string.Empty;
+            var chat = await bot.GetChat(new ChatId(telegramId), cancellationToken);
+            var bio = chat.Bio?.Trim();
+
+            if (!string.IsNullOrEmpty(bio))
+                return bio;
+
+            _logger.LogInformation("Telegram user {TelegramId} has no bio in profile", telegramId);
+            return string.Empty;
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogWarning(ex, "Failed to fetch Telegram bio for user {TelegramId}", telegramId);
             return string.Empty;
         }
     }
@@ -207,6 +214,7 @@ public sealed class TelegramBotAuthHandler
         }
 
         user.Name = profile.Name;
+        user.Bio = profile.Bio;
         user.TelegramName = profile.Name;
         user.TelegramUsername = profile.Username;
         user.TelegramBio = profile.Bio;
