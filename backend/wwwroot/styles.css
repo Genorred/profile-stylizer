@@ -11,12 +11,12 @@ body {
   line-height: 1.5;
 }
 
-.site-header {
-  background-color: #4a6cf7;
-  color: #fff;
-  padding: 20px;
-  text-align: center;
-}
+/* .site-header { */
+/*   background-color: #4a6cf7; */
+/*   color: #fff; */
+/*   padding: 20px; */
+/*   text-align: center; */
+/* } */
 
 .container {
   display: flex;
