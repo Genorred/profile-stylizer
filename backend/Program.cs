@@ -79,6 +79,7 @@ builder.Services.AddSwaggerGen(options =>
     );
 });
 
+builder.Services.AddSingleton<StylizedCardService>();
 builder.Services.AddSingleton<TelegramLoginSessionStore>();
 builder.Services.AddSingleton<TelegramBotAuthHandler>();
 builder.Services.AddHostedService<TelegramBotHostedService>();
@@ -265,8 +266,10 @@ app.MapPost(
         (IConfiguration config, TelegramLoginSessionStore sessionStore) =>
         {
             var botUsername = config["Telegram:BotUsername"];
-            if (string.IsNullOrWhiteSpace(config["Telegram:BotToken"])
-                || string.IsNullOrWhiteSpace(botUsername))
+            if (
+                string.IsNullOrWhiteSpace(config["Telegram:BotToken"])
+                || string.IsNullOrWhiteSpace(botUsername)
+            )
             {
                 return Results.Problem("Telegram bot is not configured.");
             }
@@ -274,12 +277,14 @@ app.MapPost(
             var session = sessionStore.Create(TimeSpan.FromMinutes(10));
             var botUrl = $"https://t.me/{botUsername}?start=login_{session.Token}";
 
-            return Results.Ok(new
-            {
-                token = session.Token,
-                bot_url = botUrl,
-                expires_at = session.ExpiresAt,
-            });
+            return Results.Ok(
+                new
+                {
+                    token = session.Token,
+                    bot_url = botUrl,
+                    expires_at = session.ExpiresAt,
+                }
+            );
         }
     )
     .WithTags("Auth");
@@ -299,16 +304,40 @@ app.MapGet(
                 return Results.Ok(new { status = "pending" });
             }
 
-            return Results.Ok(new
-            {
-                status = "completed",
-                access_token = session.AccessToken,
-                token_type = "Bearer",
-                user_id = session.UserId,
-            });
+            return Results.Ok(
+                new
+                {
+                    status = "completed",
+                    access_token = session.AccessToken,
+                    token_type = "Bearer",
+                    user_id = session.UserId,
+                }
+            );
         }
     )
     .WithTags("Auth");
+
+app.MapGet(
+        "/stylized-card",
+        async (ClaimsPrincipal principal, AppDbContext db, StylizedCardService cardService) =>
+        {
+            var id = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (!int.TryParse(id, out var userId))
+                return Results.Unauthorized();
+
+            var user = await db.Users.FindAsync(userId);
+
+            if (user == null)
+                return Results.NotFound();
+
+            var png = cardService.Generate(user);
+
+            return Results.File(png, "image/png");
+        }
+    )
+    .RequireAuthorization()
+    .WithTags("Stylizing");
 
 app.UseStaticFiles();
 

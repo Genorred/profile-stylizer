@@ -12,37 +12,56 @@ public sealed class TelegramBotHostedService : BackgroundService
     public TelegramBotHostedService(
         IConfiguration config,
         TelegramBotAuthHandler authHandler,
-        ILogger<TelegramBotHostedService> logger
-    )
+        ILogger<TelegramBotHostedService> logger)
     {
         _config = config;
         _authHandler = authHandler;
         _logger = logger;
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var botToken = _config["Telegram:BotToken"];
-        if (string.IsNullOrWhiteSpace(botToken))
+        var token = _config["Telegram:BotToken"];
+
+        if (string.IsNullOrWhiteSpace(token))
         {
-            _logger.LogWarning("Telegram bot token is not configured; bot login is disabled.");
-            return;
+            _logger.LogWarning("Bot token is missing");
+            return Task.CompletedTask;
         }
 
-        var bot = new TelegramBotClient(botToken);
-        var receiverOptions = new ReceiverOptions { AllowedUpdates = [UpdateType.Message] };
+        var bot = new TelegramBotClient(token);
 
-        _logger.LogInformation("Starting Telegram bot polling for login flow.");
+        var receiverOptions = new ReceiverOptions
+        {
+            AllowedUpdates = Array.Empty<UpdateType>()
+        };
 
-        await bot.ReceiveAsync(
-            (_, update, ct) => _authHandler.HandleUpdateAsync(bot, update, ct),
-            (_, exception, _) =>
-            {
-                _logger.LogError(exception, "Telegram bot polling error.");
-                return Task.CompletedTask;
-            },
+        bot.StartReceiving(
+            HandleUpdateAsync,
+            HandleErrorAsync,
             receiverOptions,
             stoppingToken
         );
+
+        _logger.LogInformation("Bot started");
+
+        return Task.CompletedTask;
+    }
+
+    private async Task HandleUpdateAsync(
+        ITelegramBotClient bot,
+        Update update,
+        CancellationToken ct)
+    {
+        await _authHandler.HandleUpdateAsync(bot, update, ct);
+    }
+
+    private Task HandleErrorAsync(
+        ITelegramBotClient bot,
+        Exception ex,
+        CancellationToken ct)
+    {
+        _logger.LogError(ex, "Telegram error");
+        return Task.CompletedTask;
     }
 }
