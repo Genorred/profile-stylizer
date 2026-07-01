@@ -2,6 +2,7 @@ const { createApp } = Vue;
 
 const TOKEN_KEY = "access_token";
 const AUTH_TYPE_KEY = "auth_type";
+const STYLIZED_KEY = "stylized_card";
 
 axios.interceptors.request.use((config) => {
   const token = localStorage.getItem(TOKEN_KEY);
@@ -31,20 +32,34 @@ createApp({
       loadingProfile: false,
 
       telegramTimer: null,
+
+      stylizedImageUrl: null,
+      stylizedLoading: false,
+      stylizedError: "",
     };
+  },
+
+  computed: {
+    isAuthenticated() {
+      return !!localStorage.getItem(TOKEN_KEY);
+    },
   },
 
   mounted() {
     const token = localStorage.getItem(TOKEN_KEY);
     const authType = localStorage.getItem(AUTH_TYPE_KEY);
 
+    // restore image from localStorage
+    const cachedImage = localStorage.getItem(STYLIZED_KEY);
+    if (cachedImage) {
+      this.stylizedImageUrl = cachedImage;
+    }
+
     if (token) {
-      // восстановление сессии
-      if (authType === "telegram") {
-        this.telegramStatus = "Telegram сесія активна";
-      } else {
-        this.telegramStatus = "Сесія активна";
-      }
+      this.telegramStatus =
+        authType === "telegram"
+          ? "Telegram сесія активна"
+          : "Сесія активна";
 
       this.loadProfile();
     }
@@ -62,7 +77,6 @@ createApp({
         localStorage.setItem(AUTH_TYPE_KEY, "password");
 
         this.loginStatus = "Успішний вхід";
-
         this.telegramStatus = "Сесія активна";
 
         await this.loadProfile();
@@ -143,6 +157,43 @@ createApp({
         this.profile = null;
       } finally {
         this.loadingProfile = false;
+      }
+    },
+
+    // convert blob → base64
+    blobToBase64(blob) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    },
+
+    async loadStylizedCard() {
+      this.stylizedLoading = true;
+      this.stylizedError = "";
+
+      try {
+        const res = await axios.get("/stylized-card", {
+          responseType: "blob",
+        });
+
+        const base64 = await this.blobToBase64(res.data);
+
+        this.stylizedImageUrl = base64;
+        localStorage.setItem(STYLIZED_KEY, base64);
+      } catch (e) {
+        const status = e.response?.status;
+
+        if (status === 401 || status === 404) {
+          this.stylizedError =
+            "Користувач не авторизований або не зареєстрований";
+        } else {
+          this.stylizedError = "Помилка генерації картки";
+        }
+      } finally {
+        this.stylizedLoading = false;
       }
     },
   },

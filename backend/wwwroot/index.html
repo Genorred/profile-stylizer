@@ -33,14 +33,15 @@
       <main class="container my-4">
         <div class="row g-4">
 
-          <!-- AUTH -->
+          <!-- LEFT COLUMN -->
           <div class="col-12 col-md-5">
+
+            <!-- AUTH -->
             <div class="card shadow-sm">
               <div class="card-header">Авторизація</div>
 
               <div class="card-body">
 
-                <!-- TABS -->
                 <ul class="nav nav-tabs mb-3">
                   <li class="nav-item">
                     <button
@@ -130,6 +131,50 @@
 
               </div>
             </div>
+
+            <!-- STYLIZED CARD (NEW) -->
+            <div class="card shadow-sm mt-4">
+              <div class="card-header d-flex justify-content-between align-items-center">
+                <span>Stylized card</span>
+
+                <button
+                  class="btn btn-sm btn-outline-primary"
+                  @click="loadStylizedCard"
+                  :disabled="stylizedLoading"
+                >
+                  {{ stylizedLoading ? '...' : 'Згенерувати' }}
+                </button>
+              </div>
+
+              <div class="card-body text-center">
+
+                <!-- NOT LOGGED IN -->
+                <div v-if="!isAuthenticated" class="text-muted">
+                  Увійдіть для генерації стилізованої картки
+                </div>
+
+                <!-- ERROR -->
+                <div v-else-if="stylizedError" class="text-danger">
+                  {{ stylizedError }}
+                </div>
+
+                <!-- IMAGE -->
+                <div v-else-if="stylizedImageUrl">
+                  <img
+                    :src="stylizedImageUrl"
+                    class="img-fluid rounded border"
+                    style="max-height: 300px;"
+                  />
+                </div>
+
+                <!-- EMPTY -->
+                <div v-else class="text-muted">
+                  Немає згенерованої картки
+                </div>
+
+              </div>
+            </div>
+
           </div>
 
           <!-- PROFILE -->
@@ -194,7 +239,6 @@
 
                   </div>
 
-                  <!-- TELEGRAM INFO -->
                   <div v-if="profile.telegramId" class="mt-4">
 
                     <h6 class="text-muted">Telegram</h6>
@@ -224,7 +268,6 @@
 
                     </div>
 
-                    <!-- IMAGES (RESTORED) -->
                     <div v-if="profile.telegramPictures?.length" class="mt-3">
                       <h6 class="text-muted mb-2">Фотографії</h6>
 
