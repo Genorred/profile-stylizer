@@ -1,6 +1,7 @@
 const { createApp } = Vue;
 
 const TOKEN_KEY = "access_token";
+const AUTH_TYPE_KEY = "auth_type";
 
 axios.interceptors.request.use((config) => {
   const token = localStorage.getItem(TOKEN_KEY);
@@ -34,7 +35,17 @@ createApp({
   },
 
   mounted() {
-    if (localStorage.getItem(TOKEN_KEY)) {
+    const token = localStorage.getItem(TOKEN_KEY);
+    const authType = localStorage.getItem(AUTH_TYPE_KEY);
+
+    if (token) {
+      // восстановление сессии
+      if (authType === "telegram") {
+        this.telegramStatus = "Telegram сесія активна";
+      } else {
+        this.telegramStatus = "Сесія активна";
+      }
+
       this.loadProfile();
     }
   },
@@ -48,7 +59,11 @@ createApp({
         });
 
         localStorage.setItem(TOKEN_KEY, res.data.access_token);
+        localStorage.setItem(AUTH_TYPE_KEY, "password");
+
         this.loginStatus = "Успішний вхід";
+
+        this.telegramStatus = "Сесія активна";
 
         await this.loadProfile();
       } catch {
@@ -100,6 +115,8 @@ createApp({
 
             if (r.data.status === "completed") {
               localStorage.setItem(TOKEN_KEY, r.data.access_token);
+              localStorage.setItem(AUTH_TYPE_KEY, "telegram");
+
               this.telegramStatus = "Успішний Telegram login";
 
               await this.loadProfile();
