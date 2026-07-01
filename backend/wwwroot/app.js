@@ -8,30 +8,39 @@ const profileCard = document.getElementById("profile-card");
 
 let telegramPollTimer = null;
 
+function setStatus(element, message, tone = "text-muted") {
+  element.textContent = message;
+  element.className = `status mb-0 small ${tone}`;
+}
+
 telegramLoginBtn.addEventListener("click", async () => {
   if (telegramPollTimer) {
     clearInterval(telegramPollTimer);
     telegramPollTimer = null;
   }
 
-  telegramLoginStatus.textContent = "Готуємо вхід через Telegram...";
-  telegramLoginStatus.style.color = "#555";
+  setStatus(telegramLoginStatus, "Готуємо вхід через Telegram...", "text-muted");
 
   try {
     const res = await fetch("/auth/telegram/start", { method: "POST" });
 
     if (!res.ok) {
-      telegramLoginStatus.textContent = "Telegram-бот не налаштований на сервері";
-      telegramLoginStatus.style.color = "red";
+      setStatus(
+        telegramLoginStatus,
+        "Telegram-бот не налаштований на сервері",
+        "text-danger"
+      );
       return;
     }
 
     const data = await res.json();
     window.open(data.bot_url, "_blank", "noopener,noreferrer");
 
-    telegramLoginStatus.textContent =
-      "Відкрийте Telegram, натисніть Start у боті — очікуємо підтвердження...";
-    telegramLoginStatus.style.color = "#555";
+    setStatus(
+      telegramLoginStatus,
+      "Відкрийте Telegram, натисніть Start у боті — очікуємо підтвердження...",
+      "text-muted"
+    );
 
     telegramPollTimer = setInterval(async () => {
       try {
@@ -49,24 +58,31 @@ telegramLoginBtn.addEventListener("click", async () => {
 
         if (statusData.status === "completed") {
           localStorage.setItem("access_token", statusData.access_token);
-          telegramLoginStatus.textContent = "Вхід через Telegram виконано успішно";
-          telegramLoginStatus.style.color = "green";
+          setStatus(
+            telegramLoginStatus,
+            "Вхід через Telegram виконано успішно",
+            "text-success"
+          );
           return;
         }
 
-        telegramLoginStatus.textContent =
-          "Час очікування минув. Спробуйте увійти через Telegram ще раз.";
-        telegramLoginStatus.style.color = "red";
+        setStatus(
+          telegramLoginStatus,
+          "Час очікування минув. Спробуйте увійти через Telegram ще раз.",
+          "text-danger"
+        );
       } catch (err) {
         clearInterval(telegramPollTimer);
         telegramPollTimer = null;
-        telegramLoginStatus.textContent = "Не вдалося перевірити статус входу";
-        telegramLoginStatus.style.color = "red";
+        setStatus(
+          telegramLoginStatus,
+          "Не вдалося перевірити статус входу",
+          "text-danger"
+        );
       }
     }, 2000);
   } catch (err) {
-    telegramLoginStatus.textContent = "Не вдалося з'єднатися з сервером";
-    telegramLoginStatus.style.color = "red";
+    setStatus(telegramLoginStatus, "Не вдалося з'єднатися з сервером", "text-danger");
   }
 });
 
@@ -84,18 +100,15 @@ loginForm.addEventListener("submit", async (e) => {
     });
 
     if (!res.ok) {
-      loginStatus.textContent = "Помилка входу";
-      loginStatus.style.color = "red";
+      setStatus(loginStatus, "Помилка входу", "text-danger");
       return;
     }
 
     const data = await res.json();
     localStorage.setItem("access_token", data.access_token);
-    loginStatus.textContent = "Вхід виконано успішно";
-    loginStatus.style.color = "green";
+    setStatus(loginStatus, "Вхід виконано успішно", "text-success");
   } catch (err) {
-    loginStatus.textContent = "Не вдалося з'єднатися з сервером";
-    loginStatus.style.color = "red";
+    setStatus(loginStatus, "Не вдалося з'єднатися з сервером", "text-danger");
   }
 });
 
@@ -103,15 +116,13 @@ loadBtn.addEventListener("click", async () => {
   const token = localStorage.getItem("access_token");
 
   if (!token) {
-    profileStatus.textContent = "Спочатку виконайте вхід";
-    profileStatus.style.color = "red";
+    setStatus(profileStatus, "Спочатку виконайте вхід", "text-danger");
     profileCard.classList.add("hidden");
     profileCard.innerHTML = "";
     return;
   }
 
-  profileStatus.textContent = "Завантаження...";
-  profileStatus.style.color = "#555";
+  setStatus(profileStatus, "Завантаження...", "text-muted");
 
   try {
     const res = await fetch("/auth/me", {
@@ -119,8 +130,7 @@ loadBtn.addEventListener("click", async () => {
     });
 
     if (!res.ok) {
-      profileStatus.textContent = "Не вдалося отримати дані";
-      profileStatus.style.color = "red";
+      setStatus(profileStatus, "Не вдалося отримати дані", "text-danger");
       profileCard.classList.add("hidden");
       profileCard.innerHTML = "";
       return;
@@ -128,10 +138,9 @@ loadBtn.addEventListener("click", async () => {
 
     const user = await res.json();
     renderProfile(user);
-    profileStatus.textContent = "";
+    setStatus(profileStatus, "", "text-muted");
   } catch (err) {
-    profileStatus.textContent = "Помилка з'єднання з сервером";
-    profileStatus.style.color = "red";
+    setStatus(profileStatus, "Помилка з'єднання з сервером", "text-danger");
     profileCard.classList.add("hidden");
     profileCard.innerHTML = "";
   }
@@ -139,72 +148,90 @@ loadBtn.addEventListener("click", async () => {
 
 function renderProfile(user) {
   const hasTelegram = user.telegramId != null;
-  const username = user.telegramUsername
-    ? `@${user.telegramUsername}`
-    : "—";
+  const username = user.telegramUsername ? `@${user.telegramUsername}` : "—";
   const photos = Array.isArray(user.telegramPictures) ? user.telegramPictures : [];
 
   const photosHtml = photos.length
-    ? `<div class="profile-photos">${photos
+    ? `<div class="d-flex flex-wrap gap-2 mt-3">${photos
         .map(
           (url) =>
             `<img src="${escapeHtml(url)}" alt="Фото профілю Telegram" class="profile-photo" />`
         )
         .join("")}</div>`
-    : `<p class="profile-empty">Фото відсутні</p>`;
+    : `<div class="alert alert-light border mt-3 mb-0">Фото відсутні</div>`;
 
   profileCard.innerHTML = `
-    <dl class="profile-fields">
-      <div class="profile-field">
-        <dt>ID</dt>
-        <dd>${escapeHtml(String(user.id))}</dd>
+    <div class="border rounded-4 p-3 bg-light-subtle">
+      <div class="row g-3">
+        <div class="col-12 col-md-6">
+          <div class="border rounded-3 p-3 h-100 bg-white">
+            <div class="text-uppercase small text-muted">ID</div>
+            <div class="fw-semibold">${escapeHtml(String(user.id))}</div>
+          </div>
+        </div>
+        <div class="col-12 col-md-6">
+          <div class="border rounded-3 p-3 h-100 bg-white">
+            <div class="text-uppercase small text-muted">Ім'я</div>
+            <div class="fw-semibold">${escapeHtml(user.name || "—")}</div>
+          </div>
+        </div>
+        <div class="col-12 col-md-6">
+          <div class="border rounded-3 p-3 h-100 bg-white">
+            <div class="text-uppercase small text-muted">Email</div>
+            <div class="fw-semibold">${escapeHtml(user.email || "—")}</div>
+          </div>
+        </div>
+        <div class="col-12 col-md-6">
+          <div class="border rounded-3 p-3 h-100 bg-white">
+            <div class="text-uppercase small text-muted">Роль</div>
+            <div class="fw-semibold">${escapeHtml(user.role || "—")}</div>
+          </div>
+        </div>
+        <div class="col-12">
+          <div class="border rounded-3 p-3 bg-white">
+            <div class="text-uppercase small text-muted">Bio</div>
+            <div class="fw-semibold">${escapeHtml(user.bio || user.telegramBio || "—")}</div>
+          </div>
+        </div>
       </div>
-      <div class="profile-field">
-        <dt>Ім'я</dt>
-        <dd>${escapeHtml(user.name || "—")}</dd>
-      </div>
-      <div class="profile-field">
-        <dt>Email</dt>
-        <dd>${escapeHtml(user.email || "—")}</dd>
-      </div>
-      <div class="profile-field">
-        <dt>Роль</dt>
-        <dd>${escapeHtml(user.role || "—")}</dd>
-      </div>
-      <div class="profile-field profile-field-wide">
-        <dt>Bio</dt>
-        <dd class="profile-bio">${escapeHtml(user.bio || user.telegramBio || "—")}</dd>
-      </div>
-    </dl>
 
-    ${
-      hasTelegram
-        ? `
-      <div class="profile-section">
-        <h3>Telegram</h3>
-        <dl class="profile-fields">
-          <div class="profile-field">
-            <dt>Telegram ID</dt>
-            <dd>${escapeHtml(String(user.telegramId))}</dd>
+      ${
+        hasTelegram
+          ? `
+        <div class="mt-4">
+          <h3 class="h6 text-uppercase text-muted mb-3">Telegram</h3>
+          <div class="row g-3">
+            <div class="col-12 col-md-6">
+              <div class="border rounded-3 p-3 bg-white">
+                <div class="text-uppercase small text-muted">Telegram ID</div>
+                <div class="fw-semibold">${escapeHtml(String(user.telegramId))}</div>
+              </div>
+            </div>
+            <div class="col-12 col-md-6">
+              <div class="border rounded-3 p-3 bg-white">
+                <div class="text-uppercase small text-muted">Ім'я в Telegram</div>
+                <div class="fw-semibold">${escapeHtml(user.telegramName || "—")}</div>
+              </div>
+            </div>
+            <div class="col-12">
+              <div class="border rounded-3 p-3 bg-white">
+                <div class="text-uppercase small text-muted">Username</div>
+                <div class="fw-semibold">${escapeHtml(username)}</div>
+              </div>
+            </div>
+            <div class="col-12">
+              <div class="border rounded-3 p-3 bg-white">
+                <div class="text-uppercase small text-muted">Біо</div>
+                <div class="fw-semibold">${escapeHtml(user.telegramBio || "—")}</div>
+              </div>
+            </div>
           </div>
-          <div class="profile-field">
-            <dt>Ім'я в Telegram</dt>
-            <dd>${escapeHtml(user.telegramName || "—")}</dd>
-          </div>
-          <div class="profile-field">
-            <dt>Username</dt>
-            <dd>${escapeHtml(username)}</dd>
-          </div>
-          <div class="profile-field profile-field-wide">
-            <dt>Біо</dt>
-            <dd>${escapeHtml(user.telegramBio || "—")}</dd>
-          </div>
-        </dl>
-        ${photosHtml}
-      </div>
-    `
-        : `<p class="profile-empty">Telegram-профіль не прив'язано</p>`
-    }
+          ${photosHtml}
+        </div>
+      `
+          : `<div class="alert alert-warning mt-3 mb-0">Telegram-профіль не прив'язано</div>`
+      }
+    </div>
   `;
 
   profileCard.classList.remove("hidden");
